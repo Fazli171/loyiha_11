@@ -1,0 +1,20 @@
+# Python cache fayllari
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+vertual/
+venv/
+env/
+.venv/
+
+
+.DS_Store
+Thumbs.db
+
+.vscode/
+.idea/
+
+*.env
