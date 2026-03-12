@@ -1,44 +1,50 @@
 import asyncio
 import logging
-import io
-from PIL import Image
-import easyocr
+import requests
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart
 from aiogram.types import Message, BufferedInputFile
 
-from config import TOKEN, ADMIN_ID, CHANNEL_ID, YOUTUBE_CHANNEL
+from config import TOKEN, CHANNEL_ID, YOUTUBE_CHANNEL
 from data import movies, users, used_photos
 
-# logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# OCR model
-reader = easyocr.Reader(['en', 'ru'], gpu=False)
-
-TARGET_WORDS = {
-    "subscribed",
-    "подписаны",
-    "obuna bolgan",
-    "views",
-    "k views"
-}
+OCR_API_KEY = "helloworld"
 
 
-def get_text_from_photo(image_bytes: bytes):
-    img = Image.open(io.BytesIO(image_bytes))
+def ocr_request(image_bytes, lang):
 
-    img = img.resize((640, 640))
+    payload = {
+        "apikey": OCR_API_KEY,
+        "language": lang,
+        "isOverlayRequired": False
+    }
 
-    buffer = io.BytesIO()
-    img.save(buffer, format="JPEG")
+    files = {
+        "file": ("image.jpg", image_bytes)
+    }
 
-    result = reader.readtext(buffer.getvalue(), detail=0)
+    r = requests.post(
+        "https://api.ocr.space/parse/image",
+        data=payload,
+        files=files
+    )
 
-    return " ".join(result).lower()
+    result = r.json()
+
+    print(f"\n===== OCR RESPONSE ({lang}) =====")
+    print(result)
+    print("===============================\n")
+
+    try:
+        return result["ParsedResults"][0]["ParsedText"].lower()
+    except:
+        return ""
 
 
 @dp.message(CommandStart())
@@ -80,20 +86,56 @@ async def check_screenshot(message: Message):
 
         image_bytes = file_bytes.read()
 
-        text = await asyncio.to_thread(get_text_from_photo, image_bytes)
+        # 1️⃣ Ingliz tilida tekshiradi
+        text_eng = await asyncio.to_thread(ocr_request, image_bytes, "eng")
 
-        if any(word in text for word in TARGET_WORDS):
+        print("\n===== OCR TEXT ENG =====")
+        print(text_eng)
+
+        eng_keywords = [
+            "subscribed",
+            "subscriber",
+            "subscribers"
+        ]
+
+        if any(word in text_eng for word in eng_keywords):
 
             users.add(user_id)
             used_photos.add(photo.file_unique_id)
 
             await status.edit_text(
-                "✅ Tasdiqlandi!\n\n🎬 Endi kino kodini yuboring"
+                "✅ Obuna tasdiqlandi (ENG)\n\n🎬 Endi kino kodini yuboring"
+            )
+            return
+
+
+        # 2️⃣ Agar inglizcha topilmasa rus tilida tekshiradi
+        text_rus = await asyncio.to_thread(ocr_request, image_bytes, "rus")
+
+        print("\n===== OCR TEXT RUS =====")
+        print(text_rus)
+
+        rus_keywords = [
+            "подпис",
+            "подписан",
+            "подписчики",
+            "вы подписаны",
+            "тыс"
+        ]
+
+        if any(word in text_rus for word in rus_keywords):
+
+            users.add(user_id)
+            used_photos.add(photo.file_unique_id)
+
+            await status.edit_text(
+                "✅ Obuna tasdiqlandi (RUS)\n\n🎬 Endi kino kodini yuboring"
             )
 
         else:
+
             await status.edit_text(
-                "❌ Obuna topilmadi.\n\nKanalga obuna bo'lib qayta screenshot yuboring."
+                "❌ Obuna aniqlanmadi.\n\nKanalga obuna bo'lib qayta screenshot yuboring."
             )
 
     except Exception as e:
