@@ -95,7 +95,7 @@ async def check_screenshot(message: Message):
         eng_keywords = [
             "subscribed",
             "subscriber",
-            "subscribers"
+            "obuna qilgan"
         ]
 
         if any(word in text_eng for word in eng_keywords):
@@ -118,9 +118,9 @@ async def check_screenshot(message: Message):
         rus_keywords = [
             "подпис",
             "подписан",
-            "подписчики",
+            "подписаться",
             "вы подписаны",
-            "тыс"
+            "Вы подписа"
         ]
 
         if any(word in text_rus for word in rus_keywords):
