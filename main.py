@@ -20,6 +20,7 @@ dp = Dispatcher()
 OCR_API_KEY = "helloworld"
 
 
+# OCR FUNKSIYA
 def ocr_request(image_bytes, lang):
 
     payload = {
@@ -32,24 +33,29 @@ def ocr_request(image_bytes, lang):
         "file": ("image.jpg", image_bytes)
     }
 
-    r = requests.post(
-        "https://api.ocr.space/parse/image",
-        data=payload,
-        files=files
-    )
-
-    result = r.json()
-
-    print(f"\n===== OCR RESPONSE ({lang}) =====")
-    print(result)
-    print("===============================\n")
-
     try:
+
+        r = requests.post(
+            "https://api.ocr.space/parse/image",
+            data=payload,
+            files=files,
+            timeout=15
+        )
+
+        result = r.json()
+
+        print(f"\n===== OCR RESPONSE ({lang}) =====")
+        print(result)
+        print("===============================\n")
+
         return result["ParsedResults"][0]["ParsedText"].lower()
-    except:
+
+    except Exception as e:
+        print("OCR ERROR:", e)
         return ""
 
 
+# START
 @dp.message(CommandStart())
 async def start(message: Message):
 
@@ -70,6 +76,7 @@ async def start(message: Message):
         await message.answer(caption)
 
 
+# SCREENSHOT TEKSHIRISH
 @dp.message(F.photo)
 async def check_screenshot(message: Message):
 
@@ -89,13 +96,13 @@ async def check_screenshot(message: Message):
 
         image_bytes = file_bytes.read()
 
-        # ingliz tilida tekshiradi
+        # ENG OCR
         text_eng = await asyncio.to_thread(ocr_request, image_bytes, "eng")
 
         eng_keywords = [
             "subscribed",
             "subscriber",
-            "obuna"
+            "obuna qilgan"
         ]
 
         if any(word in text_eng for word in eng_keywords):
@@ -108,8 +115,7 @@ async def check_screenshot(message: Message):
             )
             return
 
-
-        # rus tilida tekshiradi
+        # RUS OCR
         text_rus = await asyncio.to_thread(ocr_request, image_bytes, "rus")
 
         rus_keywords = [
@@ -135,10 +141,15 @@ async def check_screenshot(message: Message):
             )
 
     except Exception as e:
+
         logging.error(e)
-        await status.edit_text("⚠️ Xatolik yuz berdi. Qayta yuboring.")
+
+        await status.edit_text(
+            "⚠️ Tekshiruvda xatolik.\nIltimos qayta screenshot yuboring."
+        )
 
 
+# KINO KOD
 @dp.message(F.text)
 async def movie_code(message: Message):
 
@@ -162,10 +173,11 @@ async def movie_code(message: Message):
         )
 
     except:
+
         await message.answer("❌ Kino yuborishda xatolik")
 
 
-# Render uchun web server
+# RENDER WEB SERVER
 async def start_web_server():
 
     async def handler(request):
@@ -183,6 +195,7 @@ async def start_web_server():
     await site.start()
 
 
+# MAIN
 async def main():
 
     asyncio.create_task(start_web_server())
