@@ -1,6 +1,9 @@
 import asyncio
 import logging
 import requests
+import os
+
+from aiohttp import web
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart
@@ -86,16 +89,13 @@ async def check_screenshot(message: Message):
 
         image_bytes = file_bytes.read()
 
-        # 1️⃣ Ingliz tilida tekshiradi
+        # ingliz tilida tekshiradi
         text_eng = await asyncio.to_thread(ocr_request, image_bytes, "eng")
-
-        print("\n===== OCR TEXT ENG =====")
-        print(text_eng)
 
         eng_keywords = [
             "subscribed",
             "subscriber",
-            "obuna qilgan"
+            "obuna"
         ]
 
         if any(word in text_eng for word in eng_keywords):
@@ -104,23 +104,19 @@ async def check_screenshot(message: Message):
             used_photos.add(photo.file_unique_id)
 
             await status.edit_text(
-                "✅ Obuna tasdiqlandi (ENG)\n\n🎬 Endi kino kodini yuboring"
+                "✅ Obuna tasdiqlandi\n\n🎬 Endi kino kodini yuboring"
             )
             return
 
 
-        # 2️⃣ Agar inglizcha topilmasa rus tilida tekshiradi
+        # rus tilida tekshiradi
         text_rus = await asyncio.to_thread(ocr_request, image_bytes, "rus")
-
-        print("\n===== OCR TEXT RUS =====")
-        print(text_rus)
 
         rus_keywords = [
             "подпис",
             "подписан",
             "подписаться",
-            "вы подписаны",
-            "Вы подписа"
+            "вы подписаны"
         ]
 
         if any(word in text_rus for word in rus_keywords):
@@ -129,7 +125,7 @@ async def check_screenshot(message: Message):
             used_photos.add(photo.file_unique_id)
 
             await status.edit_text(
-                "✅ Obuna tasdiqlandi (RUS)\n\n🎬 Endi kino kodini yuboring"
+                "✅ Obuna tasdiqlandi\n\n🎬 Endi kino kodini yuboring"
             )
 
         else:
@@ -169,7 +165,28 @@ async def movie_code(message: Message):
         await message.answer("❌ Kino yuborishda xatolik")
 
 
+# Render uchun web server
+async def start_web_server():
+
+    async def handler(request):
+        return web.Response(text="Bot ishlayapti")
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+
+    port = int(os.environ.get("PORT", 10000))
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+
+
 async def main():
+
+    asyncio.create_task(start_web_server())
+
     await dp.start_polling(bot)
 
 
